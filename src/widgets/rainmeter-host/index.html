@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Rainmeter Host</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent;
+      -webkit-app-region: drag;
+      user-select: none;
+      position: relative;
+    }
+
+    #container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .meter {
+      position: absolute;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const container = document.getElementById('container');
+    
+    let skinData = null;
+    let skinDir = '';
+    let updateInterval = null;
+
+    // Measures state
+    const measuresState = {};
+    
+    // Audio analyzer setup
+    let audioContext = null;
+    let audioAnalyser = null;
+    let audioDataArray = null;
+
+    async function initAudio() {
+        if (audioContext) return;
+        try {
+            // Need desktop capture for system audio
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    mandatory: {
+                        chromeMediaSource: 'desktop'
+                    }
+                },
+                video: {
+                    mandatory: {
+                        chromeMediaSource: 'desktop'
+                    }
+                }
+            });
+            audioContext = new AudioContext();
+            const source = audioContext.createMediaStreamSource(stream);
+            audioAnalyser = audioContext.createAnalyser();
+            audioAnalyser.fftSize = 64; // Small size for visualizer bars
+            source.connect(audioAnalyser);
+            audioDataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+            console.log('Audio capture initialized.');
+        } catch (err) {
+            console.error('Failed to capture audio:', err);
+            // Fallback mock audio analyzer for demo purposes if permission denied
+            audioAnalyser = {
+                getByteFrequencyData: (arr) => {
+                    for(let i=0; i<arr.length; i++) {
+                        arr[i] = Math.max(0, arr[i] * 0.8 + (Math.random() * 50 - 10));
+                    }
+                }
+            };
+            audioDataArray = new Uint8Array(32);
+        }
+    }
+
+    ipcRenderer.on('load-skin', (event, data) => {
+        skinData = data.parsedData;
+        skinDir = data.skinDir;
+        console.log('Loaded skin:', skinData);
+        
+        // If there is any AudioLevel measure, request audio access
+        const needsAudio = Object.values(skinData).some(s => s.measure && s.measure.toLowerCase() === 'audiolevel');
+        if (needsAudio) {
+            initAudio();
+        }
+        
+        initSkin();
+    });
+
+    function parseColor(colorStr) {
+        if (!colorStr) return 'rgba(255,255,255,1)';
+        const parts = colorStr.split(',');
+        if (parts.length >= 3) {
+            return `rgba(${parts[0]},${parts[1]},${parts[2]},${parts[3] ? parts[3]/255 : 1})`;
+        }
+        return colorStr; // Might be hex
+    }
+
+    function initSkin() {
+        container.innerHTML = '';
+        
+        // Find Meters
+        const meters = Object.values(skinData).filter(s => s.meter);
+        
+        meters.forEach(meter => {
+            const el = document.createElement('div');
+            el.className = 'meter';
+            el.id = meter._name;
+            
+            // Apply basic position
+            if (meter.x) el.style.left = meter.x + 'px';
+            if (meter.y) el.style.top = meter.y + 'px';
+            if (meter.w) el.style.width = meter.w + 'px';
+            if (meter.h) el.style.height = meter.h + 'px';
+            if (meter.solidcolor) el.style.backgroundColor = parseColor(meter.solidcolor);
+            
+            const meterType = meter.meter.toLowerCase();
+            
+            if (meterType === 'string') {
+                if (meter.fontface) el.style.fontFamily = meter.fontface;
+                if (meter.fontsize) el.style.fontSize = meter.fontsize + 'pt';
+                if (meter.fontcolor) el.style.color = parseColor(meter.fontcolor);
+                if (meter.stringalign) {
+                    const align = meter.stringalign.toLowerCase();
+                    if (align === 'center') {
+                        el.style.transform = 'translateX(-50%)';
+                        el.style.textAlign = 'center';
+                    } else if (align === 'right') {
+                        el.style.transform = 'translateX(-100%)';
+                        el.style.textAlign = 'right';
+                    }
+                }
+                if (meter.text) {
+                    el.innerText = meter.text;
+                }
+            } else if (meterType === 'image') {
+                if (meter.imagename) {
+                    const img = document.createElement('img');
+                    // Format path for local file protocol
+                    let imgPath = meter.imagename;
+                    // Replace variables like #@# which denotes @Resources folder
+                    imgPath = imgPath.replace(/#@#/g, '@Resources/');
+                    const fullPath = (skinDir + '/' + imgPath).replace(/\\/g, '/');
+                    img.src = 'file:///' + fullPath;
+                    
+                    if (meter.w) img.style.width = meter.w + 'px';
+                    if (meter.h) img.style.height = meter.h + 'px';
+                    img.style.objectFit = 'contain';
+                    
+                    if (meter.imagealpha) img.style.opacity = parseInt(meter.imagealpha) / 255;
+                    if (meter.imagetint) {
+                        // Very basic tint using CSS filter if needed, skip for now to save perf
+                    }
+                    
+                    el.appendChild(img);
+                }
+            } else if (meterType === 'bar') {
+                const barFill = document.createElement('div');
+                barFill.className = 'bar-fill';
+                barFill.style.width = '100%';
+                barFill.style.height = '100%';
+                barFill.style.backgroundColor = parseColor(meter.barcolor || '255,255,255,255');
+                
+                const orient = (meter.barorientation || 'horizontal').toLowerCase();
+                if (orient === 'horizontal') {
+                    barFill.style.transformOrigin = 'left center';
+                    barFill.style.transform = 'scaleX(0)';
+                } else {
+                    barFill.style.transformOrigin = 'bottom center';
+                    barFill.style.transform = 'scaleY(0)';
+                }
+                
+                // Store orientation for update loop
+                el.dataset.orientation = orient;
+                el.appendChild(barFill);
+            }
+            
+            container.appendChild(el);
+        });
+        
+        // Start update loop (default Rainmeter update is 1000ms)
+        let updateRate = skinData.rainmeter && skinData.rainmeter.update ? parseInt(skinData.rainmeter.update) : 1000;
+        if (updateRate < 16) updateRate = 16; // Limit to ~60fps
+        if (updateInterval) clearInterval(updateInterval);
+        updateInterval = setInterval(updateSkin, updateRate);
+        updateSkin(); // Initial update
+    }
+    
+    function updateSkin() {
+        if (!skinData) return;
+        
+        if (audioAnalyser) {
+            audioAnalyser.getByteFrequencyData(audioDataArray);
+        }
+        
+        // Update Measures
+        const measures = Object.values(skinData).filter(s => s.measure);
+        measures.forEach(measure => {
+            const type = measure.measure.toLowerCase();
+            if (type === 'time') {
+                const format = measure.format || '%H:%M';
+                const now = new Date();
+                
+                let val = format.replace('%H', now.getHours().toString().padStart(2, '0'))
+                                .replace('%M', now.getMinutes().toString().padStart(2, '0'))
+                                .replace('%S', now.getSeconds().toString().padStart(2, '0'))
+                                .replace('%I', (now.getHours() % 12 || 12).toString().padStart(2, '0'))
+                                .replace('%p', now.getHours() >= 12 ? 'PM' : 'AM');
+                                
+                measuresState[measure._name.toLowerCase()] = val;
+            } else if (type === 'audiolevel') {
+                if (!audioAnalyser) {
+                    measuresState[measure._name.toLowerCase()] = 0;
+                    return;
+                }
+                
+                // Use the type parameter (RMS, Peak, Band)
+                const audioType = (measure.type || 'rms').toLowerCase();
+                let value = 0;
+                
+                if (audioType === 'band') {
+                    const bandIdx = parseInt(measure.bandidx || 0) % audioDataArray.length;
+                    value = audioDataArray[bandIdx] / 255.0; // 0 to 1
+                } else {
+                    // RMS or Peak fallback across all
+                    let sum = 0;
+                    for (let i = 0; i < audioDataArray.length; i++) {
+                        sum += audioDataArray[i];
+                    }
+                    value = (sum / audioDataArray.length) / 255.0;
+                }
+                
+                measuresState[measure._name.toLowerCase()] = value;
+            }
+        });
+        
+        // Update Meters
+        const meters = Object.values(skinData).filter(s => s.meter);
+        meters.forEach(meter => {
+            const meterType = meter.meter.toLowerCase();
+            
+            if (meter.measurename) {
+                const measureNameLower = meter.measurename.toLowerCase();
+                const measureVal = measuresState[measureNameLower];
+                
+                if (measureVal !== undefined) {
+                    const el = document.getElementById(meter._name);
+                    if (el) {
+                        if (meterType === 'string') {
+                            let text = meter.text || '%1';
+                            el.innerText = text.replace('%1', measureVal);
+                        } else if (meterType === 'bar') {
+                            const barFill = el.querySelector('.bar-fill');
+                            if (barFill) {
+                                // measureVal is 0.0 to 1.0
+                                const clamped = Math.max(0, Math.min(1, measureVal));
+                                const orient = el.dataset.orientation;
+                                if (orient === 'horizontal') {
+                                    barFill.style.transform = \`scaleX(\${clamped})\`;
+                                } else {
+                                    barFill.style.transform = \`scaleY(\${clamped})\`;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Save position on drag
+    let dragTimeout;
+    window.addEventListener('mouseup', () => {
+        clearTimeout(dragTimeout);
+        dragTimeout = setTimeout(() => {
+            const bounds = {
+                x: window.screenX,
+                y: window.screenY,
+                width: window.outerWidth,
+                height: window.outerHeight
+            };
+            // Send specific widget ID bounds using the folder name if available
+            const widgetId = skinData && skinData._filename ? 'rmskin:' + skinData._filename.replace('.ini', '') : 'rainmeter-host';
+            ipcRenderer.send('widget-dragged', widgetId, bounds);
+        }, 500);
+    });
+  </script>
+</body>
+</html>

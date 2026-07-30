@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lumina Wallpaper Viewport</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000;
+      user-select: none;
+    }
+    .layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 1.5s ease-in-out;
+      pointer-events: none;
+    }
+    .layer.active {
+      opacity: 1;
+    }
+    .media-element {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="layer-0" class="layer active">
+    <video class="media-video media-element" loop muted playsinline></video>
+    <img class="media-image media-element" alt="Desktop wallpaper" />
+    <iframe class="media-web media-element" style="border: none;"></iframe>
+  </div>
+  <div id="layer-1" class="layer">
+    <video class="media-video media-element" loop muted playsinline></video>
+    <img class="media-image media-element" alt="Desktop wallpaper" />
+    <iframe class="media-web media-element" style="border: none;"></iframe>
+  </div>
+
+  <script>
+    const ipcRenderer = window.electron;
+    let currentLayerIndex = 0;
+    
+    function getLayer(index) {
+        const el = document.getElementById('layer-' + index);
+        return {
+            container: el,
+            video: el.querySelector('.media-video'),
+            image: el.querySelector('.media-image'),
+            web: el.querySelector('.media-web')
+        };
+    }
+
+    ipcRenderer.on('set-wallpaper', (event, wallpaper, volume) => {
+        let mediaPath = wallpaper.path;
+        if (wallpaper.local && wallpaper.type !== 'url') {
+            mediaPath = 'file:///' + wallpaper.path.replace(/\\/g, '/');
+        }
+
+        const nextLayerIndex = currentLayerIndex === 0 ? 1 : 0;
+        const nextLayer = getLayer(nextLayerIndex);
+        const currentLayer = getLayer(currentLayerIndex);
+
+        // Prepare next layer
+        if (wallpaper.type === 'url') {
+            nextLayer.video.style.display = 'none';
+            nextLayer.video.pause();
+            nextLayer.image.style.display = 'none';
+            
+            nextLayer.web.src = mediaPath;
+            nextLayer.web.style.display = 'block';
+        } else if (wallpaper.type === 'video') {
+            nextLayer.image.style.display = 'none';
+            nextLayer.web.style.display = 'none';
+            nextLayer.web.src = '';
+            
+            if (mediaPath.includes('_ww_')) {
+                nextLayer.video.style.transform = 'scale(1.08)';
+            } else {
+                nextLayer.video.style.transform = 'scale(1.0)';
+            }
+            
+            nextLayer.video.src = mediaPath;
+            nextLayer.video.volume = volume / 100;
+            nextLayer.video.style.display = 'block';
+            nextLayer.video.play().catch(e => console.error("Video play failed:", e));
+        } else {
+            nextLayer.video.style.display = 'none';
+            nextLayer.video.pause();
+            nextLayer.web.style.display = 'none';
+            nextLayer.web.src = '';
+            
+            nextLayer.image.src = mediaPath;
+            nextLayer.image.style.display = 'block';
+        }
+
+        // Crossfade
+        nextLayer.container.classList.add('active');
+        currentLayer.container.classList.remove('active');
+        
+        // Cleanup old layer after transition
+        setTimeout(() => {
+            currentLayer.video.pause();
+            currentLayer.video.src = '';
+            currentLayer.image.src = '';
+            currentLayer.web.src = '';
+        }, 1500);
+
+        currentLayerIndex = nextLayerIndex;
+    });
+
+    ipcRenderer.on('clear-wallpaper', () => {
+        const layer0 = getLayer(0);
+        const layer1 = getLayer(1);
+        [layer0, layer1].forEach(layer => {
+            layer.container.classList.remove('active');
+            setTimeout(() => {
+                layer.video.pause();
+                layer.video.src = '';
+                layer.image.src = '';
+                layer.web.src = '';
+            }, 1500);
+        });
+    });
+
+    ipcRenderer.on('set-volume', (event, volume) => {
+        getLayer(0).video.volume = volume / 100;
+        getLayer(1).video.volume = volume / 100;
+    });
+
+    ipcRenderer.on('pause', () => {
+        getLayer(currentLayerIndex).video.pause();
+        console.log('Video paused due to active fullscreen window.');
+    });
+
+    ipcRenderer.on('resume', () => {
+        const video = getLayer(currentLayerIndex).video;
+        if (video.src && video.style.display === 'block') {
+            video.play().catch(e => console.error("Video play failed on resume:", e));
+            console.log('Video resumed.');
+        }
+    });
+  </script>
+</body>
+</html>

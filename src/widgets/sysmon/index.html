@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lumina Sysmon Widget</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: rgba(15, 17, 26, 0.6);
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-cpu: #ef4444;
+      --accent-ram: #3b82f6;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Outfit', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+    }
+    
+    .widget-container {
+      background: var(--bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      width: 250px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      -webkit-app-region: drag;
+      cursor: grab;
+      user-select: none;
+      position: relative;
+    }
+    
+    .widget-container:active {
+      cursor: grabbing;
+    }
+    
+    .stat-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .stat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .stat-value {
+      font-weight: 700;
+    }
+    
+    .cpu-val { color: var(--accent-cpu); }
+    .ram-val { color: var(--accent-ram); }
+    
+    .progress-bg {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease-out;
+    }
+    
+    .cpu-bar {
+      background: linear-gradient(90deg, #f87171, #ef4444);
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+    }
+    
+    .ram-bar {
+      background: linear-gradient(90deg, #60a5fa, #3b82f6);
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+    }
+    
+    .drag-indicator {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      display: flex;
+      gap: 2px;
+    }
+    
+    .drag-indicator span {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+    }
+    
+    .widget-container:hover .drag-indicator {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="widget-container">
+    <div class="drag-indicator">
+      <span></span><span></span><span></span>
+    </div>
+    
+    <div class="stat-row">
+      <div class="stat-header">
+        <span>CPU Usage</span>
+        <span class="stat-value cpu-val" id="cpu-val">0%</span>
+      </div>
+      <div class="progress-bg">
+        <div class="progress-bar cpu-bar" id="cpu-bar" style="width: 0%"></div>
+      </div>
+    </div>
+    
+    <div class="stat-row">
+      <div class="stat-header">
+        <span>RAM Usage</span>
+        <span class="stat-value ram-val" id="ram-val">0%</span>
+      </div>
+      <div class="progress-bg">
+        <div class="progress-bar ram-bar" id="ram-bar" style="width: 0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const os = require('os');
+    
+    const cpuVal = document.getElementById('cpu-val');
+    const cpuBar = document.getElementById('cpu-bar');
+    const ramVal = document.getElementById('ram-val');
+    const ramBar = document.getElementById('ram-bar');
+
+    let previousCpuInfo = getCpuInfo();
+
+    function getCpuInfo() {
+        const cpus = os.cpus();
+        let idle = 0;
+        let total = 0;
+        for (const cpu of cpus) {
+            for (const type in cpu.times) {
+                total += cpu.times[type];
+            }
+            idle += cpu.times.idle;
+        }
+        return { idle, total };
+    }
+
+    function updateStats() {
+        // CPU Calc
+        const currentCpuInfo = getCpuInfo();
+        const idleDifference = currentCpuInfo.idle - previousCpuInfo.idle;
+        const totalDifference = currentCpuInfo.total - previousCpuInfo.total;
+        
+        let cpuUsage = 0;
+        if (totalDifference !== 0) {
+            cpuUsage = 100 - ~~(100 * idleDifference / totalDifference);
+        }
+        previousCpuInfo = currentCpuInfo;
+        
+        cpuVal.textContent = `${cpuUsage}%`;
+        cpuBar.style.width = `${cpuUsage}%`;
+
+        // RAM Calc
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const usedMem = totalMem - freeMem;
+        const ramUsage = Math.round((usedMem / totalMem) * 100);
+        
+        // Show GB
+        const usedGB = (usedMem / 1024 / 1024 / 1024).toFixed(1);
+        const totalGB = (totalMem / 1024 / 1024 / 1024).toFixed(1);
+        
+        ramVal.textContent = `${ramUsage}% (${usedGB}GB)`;
+        ramBar.style.width = `${ramUsage}%`;
+    }
+
+    // Initial call
+    updateStats();
+    
+    // Update every second
+    setInterval(updateStats, 1500);
+    
+    // Report drag end to main process to save bounds
+    let dragTimeout;
+    window.addEventListener('mouseup', () => {
+        clearTimeout(dragTimeout);
+        dragTimeout = setTimeout(() => {
+            const bounds = {
+                x: window.screenX,
+                y: window.screenY,
+                width: window.outerWidth,
+                height: window.outerHeight
+            };
+            ipcRenderer.send('widget-dragged', 'sysmon', bounds);
+        }, 500);
+    });
+  </script>
+</body>
+</html>

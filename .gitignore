@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.vs/
+*.user
+*.suo
+bin/
+scratch/
+test-skin/
+visualskins.html
+scrape_test.js
+scratch-scrape.js
+scratch-scrape2.js
+test.html
+up.txt
