@@ -125,7 +125,14 @@ class LuminaHelper {
             // 2. Trigger the creation of WorkerW window
             IntPtr result;
             SendMessageTimeout(progman, 0x052C, IntPtr.Zero, IntPtr.Zero, 0x0000, 1000, out result);
-            workerw = FindWindowEx(progman, IntPtr.Zero, "WorkerW", null);
+            int wRetry = 0;
+            while (workerw == IntPtr.Zero && wRetry < 10) {
+                workerw = FindWindowEx(progman, IntPtr.Zero, "WorkerW", null);
+                if (workerw == IntPtr.Zero) {
+                    System.Threading.Thread.Sleep(50);
+                }
+                wRetry++;
+            }
         }
         if (workerw == IntPtr.Zero) {
             // Check for sibling of the window containing SHELLDLL_DefView
@@ -157,8 +164,13 @@ class LuminaHelper {
             GC.KeepAlive(findWorkerW2);
         }
 
+        // Final fallback: use progman if WorkerW is not spawned
         if (workerw == IntPtr.Zero) {
-            Console.WriteLine("Error: Could not find WorkerW window.");
+            workerw = progman;
+        }
+
+        if (workerw == IntPtr.Zero) {
+            Console.WriteLine("Error: Could not find WorkerW or Progman window.");
             return;
         }
 
