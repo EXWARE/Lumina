@@ -379,9 +379,6 @@ app.on('before-quit', () => {
         try { helperProcess.kill(); } catch(e) {}
         helperProcess = null;
     }
-    if (widgetManager) {
-        widgetManager.stopAll();
-    }
     if (tray) {
         tray.destroy();
         tray = null;
