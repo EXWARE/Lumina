@@ -498,6 +498,64 @@
       opacity: 1;
     }
 
+    /* Playlist Badge & Delete Button */
+    .playlist-toggle-btn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      transition: all 0.2s ease;
+    }
+
+    .playlist-toggle-btn:hover {
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      transform: scale(1.1);
+    }
+
+    .playlist-toggle-btn.in-playlist {
+      background: var(--accent-color);
+      border-color: var(--accent-light);
+      color: #ffffff;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .delete-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(239, 68, 68, 0.2);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #ef4444;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      transition: all 0.2s ease;
+    }
+
+    .delete-btn:hover {
+      background: #ef4444;
+      color: #fff;
+      transform: scale(1.1);
+    }
+
     .action-btn {
       background: var(--accent-color);
       border: 1px solid var(--accent-light);
@@ -1226,6 +1284,16 @@
               <option value="1800">30 minutes</option>
               <option value="3600">1 hour</option>
               <option value="86400">1 day</option>
+            </select>
+          </div>
+          <div class="settings-row" id="slideshow-mode-row">
+            <div class="settings-info">
+              <div class="settings-label">Slideshow Selection Mode</div>
+              <div class="settings-desc">Choose whether to rotate all wallpapers or only selected ones.</div>
+            </div>
+            <select class="settings-select" id="set-slideshow-mode">
+              <option value="all">All Library Wallpapers</option>
+              <option value="selected">Selected Wallpapers Only</option>
             </select>
           </div>
         </div>

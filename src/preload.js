@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('electron', {
     },
     // Send methods (one-way to main process)
     send: (channel, data) => {
-        const validChannels = ['window-control', 'apply-wallpaper', 'set-volume', 'save-config', 'set-autopause', 'set-taskbar-style', 'set-pause-on-battery', 'set-pause-on-lock', 'install-update', 'fix-dwm-freeze', 'set-start-with-windows', 'set-slideshow-enabled', 'set-slideshow-interval'];
+        const validChannels = ['window-control', 'apply-wallpaper', 'set-volume', 'save-config', 'set-autopause', 'set-taskbar-style', 'set-pause-on-battery', 'set-pause-on-lock', 'install-update', 'fix-dwm-freeze', 'set-start-with-windows', 'set-slideshow-enabled', 'set-slideshow-interval', 'set-slideshow-selected-only', 'toggle-slideshow-playlist-item'];
         if (validChannels.includes(channel)) {
             ipcRenderer.send(channel, data);
         }
@@ -25,7 +25,7 @@ contextBridge.exposeInMainWorld('electron', {
     },
     // Listen methods (from main process)
     on: (channel, func) => {
-        const validChannels = ['download-progress', 'set-wallpaper', 'clear-wallpaper', 'set-volume', 'pause', 'resume', 'update-available', 'update-downloaded'];
+        const validChannels = ['download-progress', 'download-progress-update', 'set-wallpaper', 'clear-wallpaper', 'set-volume', 'pause', 'resume', 'update-available', 'update-downloaded', 'slideshow-playlist-updated'];
         if (validChannels.includes(channel)) {
             // Strip event as it includes sender
             ipcRenderer.on(channel, (event, ...args) => func(event, ...args));

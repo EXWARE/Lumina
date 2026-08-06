@@ -42,6 +42,8 @@ let config = {
     urlWallpapers: [],
     slideshowEnabled: false,
     slideshowInterval: 300, // default 5 minutes (300 seconds)
+    slideshowSelectedOnly: false,
+    slideshowPlaylist: [],
     serverUrl: 'https://lumina-q649.onrender.com'
 };
 
@@ -340,11 +342,21 @@ if (!gotTheLock) {
     
     // Listen for updates
     autoUpdater.on('update-available', (info) => {
-        if (controlPanelWindow) controlPanelWindow.webContents.send('update-available', info);
+        if (controlPanelWindow && !controlPanelWindow.isDestroyed()) {
+            controlPanelWindow.webContents.send('update-available', info);
+        }
     });
     
+    autoUpdater.on('download-progress', (progressObj) => {
+        if (controlPanelWindow && !controlPanelWindow.isDestroyed()) {
+            controlPanelWindow.webContents.send('download-progress-update', progressObj);
+        }
+    });
+
     autoUpdater.on('update-downloaded', (info) => {
-        if (controlPanelWindow) controlPanelWindow.webContents.send('update-downloaded', info);
+        if (controlPanelWindow && !controlPanelWindow.isDestroyed()) {
+            controlPanelWindow.webContents.send('update-downloaded', info);
+        }
     });
     
     autoUpdater.on('error', (err) => {
@@ -475,7 +487,7 @@ function startSlideshow() {
     stopSlideshow();
     if (!config.slideshowEnabled) return;
     
-    console.log(`[Main]: Starting wallpaper slideshow with interval: ${config.slideshowInterval}s`);
+    console.log(`[Main]: Starting wallpaper slideshow (Selected Only: ${config.slideshowSelectedOnly}) with interval: ${config.slideshowInterval}s`);
     
     const intervalMs = config.slideshowInterval * 1000;
     
@@ -486,9 +498,20 @@ function startSlideshow() {
             return;
         }
         
-        let candidates = libraryItems;
-        if (config.activeWallpaper) {
-            candidates = libraryItems.filter(w => w.path !== config.activeWallpaper.path);
+        let pool = libraryItems;
+        // Filter by user selected playlist if selective mode is enabled
+        if (config.slideshowSelectedOnly && Array.isArray(config.slideshowPlaylist) && config.slideshowPlaylist.length > 0) {
+            pool = libraryItems.filter(w => config.slideshowPlaylist.includes(w.path));
+        }
+
+        if (pool.length === 0) {
+            console.log('[Main]: Slideshow: No wallpapers matched the selected playlist filter.');
+            return;
+        }
+        
+        let candidates = pool;
+        if (config.activeWallpaper && pool.length > 1) {
+            candidates = pool.filter(w => w.path !== config.activeWallpaper.path);
         }
         
         if (candidates.length === 0) return;
@@ -742,6 +765,34 @@ ipcMain.on('set-slideshow-enabled', (event, val) => {
         startSlideshow();
     } else {
         stopSlideshow();
+    }
+});
+
+ipcMain.on('set-slideshow-selected-only', (event, val) => {
+    config.slideshowSelectedOnly = !!val;
+    saveConfig();
+    if (config.slideshowEnabled) {
+        startSlideshow();
+    }
+});
+
+ipcMain.on('toggle-slideshow-playlist-item', (event, wallpaperPath) => {
+    if (!wallpaperPath) return;
+    if (!Array.isArray(config.slideshowPlaylist)) {
+        config.slideshowPlaylist = [];
+    }
+    const idx = config.slideshowPlaylist.indexOf(wallpaperPath);
+    if (idx >= 0) {
+        config.slideshowPlaylist.splice(idx, 1);
+    } else {
+        config.slideshowPlaylist.push(wallpaperPath);
+    }
+    saveConfig();
+    if (controlPanelWindow && !controlPanelWindow.isDestroyed()) {
+        controlPanelWindow.webContents.send('slideshow-playlist-updated', config.slideshowPlaylist);
+    }
+    if (config.slideshowEnabled && config.slideshowSelectedOnly) {
+        startSlideshow();
     }
 });
 

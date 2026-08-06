@@ -55,6 +55,15 @@ try {
         if (startWindowsToggle) startWindowsToggle.checked = config.startWithWindows || false;
         if (slideshowToggle) slideshowToggle.checked = config.slideshowEnabled || false;
         if (slideshowIntervalSelect) slideshowIntervalSelect.value = config.slideshowInterval || 300;
+        const setSlideshowModeSelect = document.getElementById('set-slideshow-mode');
+        if (setSlideshowModeSelect) {
+            setSlideshowModeSelect.value = config.slideshowSelectedOnly ? 'selected' : 'all';
+            setSlideshowModeSelect.addEventListener('change', (e) => {
+                const isSelectedOnly = e.target.value === 'selected';
+                config.slideshowSelectedOnly = isSelectedOnly;
+                ipcRenderer.send('set-slideshow-selected-only', isSelectedOnly);
+            });
+        }
         
         if (volumeSlider && volumeIndicator) {
             volumeSlider.value = config.volume;
@@ -1129,8 +1138,60 @@ function createWallpaperCard(wallpaper, isDiscover = false) {
     cardInfo.appendChild(cardType);
     card.appendChild(cardInfo);
 
-    // Add Delete Button to local Library Cards
+    // Add Playlist Toggle & Delete Button to local Library Cards
     if (wallpaper.local) {
+        // Slideshow Playlist Toggle Badge
+        const playlistBtn = document.createElement('div');
+        playlistBtn.className = 'playlist-toggle-btn';
+        
+        const isSelected = Array.isArray(config.slideshowPlaylist) && config.slideshowPlaylist.includes(wallpaper.path);
+        if (isSelected) {
+            playlistBtn.classList.add('in-playlist');
+            playlistBtn.title = "Included in Slideshow (Click to remove)";
+            playlistBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            `;
+        } else {
+            playlistBtn.title = "Add to Slideshow Playlist";
+            playlistBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            `;
+        }
+
+        playlistBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            ipcRenderer.send('toggle-slideshow-playlist-item', wallpaper.path);
+            const nowSelected = playlistBtn.classList.toggle('in-playlist');
+            if (nowSelected) {
+                playlistBtn.title = "Included in Slideshow (Click to remove)";
+                playlistBtn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                `;
+                if (!Array.isArray(config.slideshowPlaylist)) config.slideshowPlaylist = [];
+                if (!config.slideshowPlaylist.includes(wallpaper.path)) config.slideshowPlaylist.push(wallpaper.path);
+            } else {
+                playlistBtn.title = "Add to Slideshow Playlist";
+                playlistBtn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                `;
+                if (Array.isArray(config.slideshowPlaylist)) {
+                    config.slideshowPlaylist = config.slideshowPlaylist.filter(p => p !== wallpaper.path);
+                }
+            }
+        });
+        
+        card.appendChild(playlistBtn);
+
         const deleteBtn = document.createElement('div');
         deleteBtn.className = 'delete-btn';
         deleteBtn.innerHTML = `
@@ -1345,10 +1406,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateBtn = document.getElementById('update-action-btn');
 
     if (ipcRenderer && updateToast) {
+        let updateVersion = '';
         ipcRenderer.on('update-available', (event, info) => {
             updateToast.classList.add('show');
             if (info && info.version) {
+                updateVersion = info.version;
                 updateMsg.textContent = `Downloading v${info.version} in the background...`;
+            }
+        });
+
+        ipcRenderer.on('download-progress-update', (event, progressObj) => {
+            updateToast.classList.add('show');
+            if (progressObj && typeof progressObj.percent === 'number') {
+                const pct = Math.round(progressObj.percent);
+                updateMsg.textContent = `Downloading v${updateVersion || '2.9.1'}... (${pct}%)`;
+                updateBtn.textContent = `${pct}%`;
             }
         });
 
@@ -1359,11 +1431,11 @@ document.addEventListener('DOMContentLoaded', () => {
             updateBtn.textContent = 'Restart & Install';
             updateBtn.disabled = false;
             
-            updateBtn.addEventListener('click', () => {
+            updateBtn.onclick = () => {
                 updateBtn.textContent = 'Installing...';
                 updateBtn.disabled = true;
                 ipcRenderer.send('install-update');
-            });
+            };
         });
     }
 });

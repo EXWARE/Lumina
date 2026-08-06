@@ -1,6 +1,6 @@
 {
   "name": "Lumina-wallpaper",
-  "version": "2.9.1",
+  "version": "2.9.2",
   "description": "Lumina Wallpapers by EXWARE",
   "main": "src/main.js",
   "author": "EXWARE",
@@ -14,7 +14,7 @@
   "build": {
     "appId": "com.exware.lumina",
     "productName": "Lumina Wallpapers",
-    "artifactName": "${productName} Setup.${ext}",
+    "artifactName": "Lumina.Wallpapers.Setup.${ext}",
     "copyright": "Copyright © 2025 EXWARE",
     "publish": [
       {
