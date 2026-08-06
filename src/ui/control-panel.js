@@ -44,10 +44,12 @@ const slideshowIntervalSelect = document.getElementById('set-slideshow-interval'
 const btnImportRmskin = document.getElementById('btn-import-rmskin');
 const importedSkinsContainer = document.getElementById('imported-skins-container');
 
-// Load Initial Settings Config
+// App Config (module-scoped)
+let config = {};
 try {
-    const config = ipcRenderer.sendSync('get-config');
-    if (config) {
+    const fetchedConfig = ipcRenderer.sendSync('get-config');
+    if (fetchedConfig) {
+        config = fetchedConfig;
         if (autoPauseToggle) autoPauseToggle.checked = config.autoPause;
         if (pauseBatteryToggle) pauseBatteryToggle.checked = config.pauseOnBattery;
         if (pauseLockToggle) pauseLockToggle.checked = config.pauseOnLock;
