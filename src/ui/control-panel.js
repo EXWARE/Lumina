@@ -907,7 +907,7 @@ function _generateVideoThumbnailRaw(videoPath) {
                     canvas.height = 205;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    const dataUrl = canvas.toDataURL('image/webp', 0.75);
                     done(dataUrl);
                 } catch (e) {
                     console.error("Failed to render video thumbnail frame:", e);

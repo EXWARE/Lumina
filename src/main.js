@@ -134,12 +134,45 @@ function createControlPanel() {
     controlPanelWindow.on('focus', fixDwmFreeze);
 }
 
+// Helper: Calculate Virtual Desktop bounds across single or multiple monitors
+function getVirtualDesktopBounds() {
+    const { screen } = require('electron');
+    const displays = screen.getAllDisplays();
+    if (!displays || displays.length === 0) return { x: 0, y: 0, width: 1920, height: 1080 };
+    
+    let minX = displays[0].bounds.x;
+    let minY = displays[0].bounds.y;
+    let maxX = displays[0].bounds.x + displays[0].bounds.width;
+    let maxY = displays[0].bounds.y + displays[0].bounds.height;
+    
+    displays.forEach(display => {
+        const b = display.bounds;
+        minX = Math.min(minX, b.x);
+        minY = Math.min(minY, b.y);
+        maxX = Math.max(maxX, b.x + b.width);
+        maxY = Math.max(maxY, b.y + b.height);
+    });
+    
+    return {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY
+    };
+}
+
 // Create the Wallpaper Viewport Window
 function createWallpaperWindow() {
     if (wallpaperWindow) return;
 
+    const bounds = getVirtualDesktopBounds();
+
     wallpaperWindow = new BrowserWindow({
         title: "Lumina Wallpaper Viewport",
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
         frame: false,
         transparent: true,
         show: true, // Show window so Win32 FindWindow can locate and parent it
@@ -154,6 +187,8 @@ function createWallpaperWindow() {
             webSecurity: false
         }
     });
+
+    wallpaperWindow.setBounds(bounds);
 
     wallpaperWindow.loadFile(path.join(__dirname, 'ui', 'wallpaper-viewer.html'));
 
