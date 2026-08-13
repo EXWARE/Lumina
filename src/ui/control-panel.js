@@ -1082,6 +1082,8 @@ function createWallpaperCard(wallpaper, isDiscover = false) {
     
     const imgEl = document.createElement('img');
     imgEl.className = 'card-thumb';
+    imgEl.decoding = 'async';
+    imgEl.loading = 'lazy';
     imgEl.src = thumbSrc;
     imgEl.alt = wallpaper.name || 'Wallpaper thumbnail';
     imgEl.addEventListener('error', () => {

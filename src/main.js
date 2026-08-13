@@ -336,6 +336,34 @@ if (!gotTheLock) {
         startSlideshow();
     }
 
+    // --- PowerMonitor Efficiency Setup (0.00% CPU/GPU on sleep/lock) ---
+    const { powerMonitor } = require('electron');
+    powerMonitor.on('suspend', () => {
+        console.log('[PowerMonitor]: System suspend detected — pausing live wallpaper for 0% CPU/GPU.');
+        if (wallpaperWindow && !wallpaperWindow.isDestroyed()) {
+            wallpaperWindow.webContents.send('pause');
+        }
+    });
+
+    powerMonitor.on('resume', () => {
+        console.log('[PowerMonitor]: System resume detected — restoring live wallpaper.');
+        if (wallpaperWindow && !wallpaperWindow.isDestroyed()) {
+            wallpaperWindow.webContents.send('resume');
+        }
+    });
+
+    powerMonitor.on('lock-screen', () => {
+        if (config.pauseOnLock && wallpaperWindow && !wallpaperWindow.isDestroyed()) {
+            wallpaperWindow.webContents.send('pause');
+        }
+    });
+
+    powerMonitor.on('unlock-screen', () => {
+        if (config.pauseOnLock && wallpaperWindow && !wallpaperWindow.isDestroyed()) {
+            wallpaperWindow.webContents.send('resume');
+        }
+    });
+
     // --- OTA Auto-Updater Setup ---
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;

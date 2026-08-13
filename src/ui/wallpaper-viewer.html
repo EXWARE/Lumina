@@ -20,7 +20,11 @@
       width: 100%;
       height: 100%;
       opacity: 0;
-      transition: opacity 1.5s ease-in-out;
+      transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: opacity, transform;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      contain: strict;
       pointer-events: none;
     }
     .layer.active {
@@ -74,6 +78,20 @@
         const nextLayer = getLayer(nextLayerIndex);
         const currentLayer = getLayer(currentLayerIndex);
 
+        function triggerCrossfade() {
+            nextLayer.container.classList.add('active');
+            currentLayer.container.classList.remove('active');
+            
+            setTimeout(() => {
+                currentLayer.video.pause();
+                currentLayer.video.src = '';
+                currentLayer.image.src = '';
+                currentLayer.web.src = '';
+            }, 1500);
+
+            currentLayerIndex = nextLayerIndex;
+        }
+
         // Prepare next layer
         if (wallpaper.type === 'url') {
             nextLayer.video.style.display = 'none';
@@ -82,6 +100,7 @@
             
             nextLayer.web.src = mediaPath;
             nextLayer.web.style.display = 'block';
+            triggerCrossfade();
         } else if (wallpaper.type === 'video') {
             nextLayer.image.style.display = 'none';
             nextLayer.web.style.display = 'none';
@@ -96,30 +115,30 @@
             nextLayer.video.src = mediaPath;
             nextLayer.video.volume = volume / 100;
             nextLayer.video.style.display = 'block';
-            nextLayer.video.play().catch(e => console.error("Video play failed:", e));
+            
+            // Stutter-Free: Wait for first frame to load before triggering crossfade
+            nextLayer.video.onloadeddata = () => {
+                triggerCrossfade();
+                nextLayer.video.onloadeddata = null;
+            };
+            
+            nextLayer.video.play().catch(e => {
+                console.error("Video play failed:", e);
+                triggerCrossfade();
+            });
         } else {
             nextLayer.video.style.display = 'none';
             nextLayer.video.pause();
             nextLayer.web.style.display = 'none';
             nextLayer.web.src = '';
             
+            nextLayer.image.onload = () => {
+                triggerCrossfade();
+                nextLayer.image.onload = null;
+            };
             nextLayer.image.src = mediaPath;
             nextLayer.image.style.display = 'block';
         }
-
-        // Crossfade
-        nextLayer.container.classList.add('active');
-        currentLayer.container.classList.remove('active');
-        
-        // Cleanup old layer after transition
-        setTimeout(() => {
-            currentLayer.video.pause();
-            currentLayer.video.src = '';
-            currentLayer.image.src = '';
-            currentLayer.web.src = '';
-        }, 1500);
-
-        currentLayerIndex = nextLayerIndex;
     });
 
     ipcRenderer.on('clear-wallpaper', () => {
