@@ -46,9 +46,6 @@ class WidgetManager {
     }
 
     getWidgetPath(id) {
-        if (id.startsWith('rmskin:')) {
-            return path.join(__dirname, 'widgets', 'rainmeter-host', 'index.html');
-        }
         return path.join(__dirname, 'widgets', id, 'index.html');
     }
 
@@ -89,27 +86,7 @@ class WidgetManager {
         });
 
         // Load the widget
-        win.loadFile(widgetPath);
-        
-        // If it's a rainmeter skin, parse the ini and send it via IPC when loaded
-        if (id.startsWith('rmskin:')) {
-            win.webContents.on('did-finish-load', () => {
-                try {
-                    const IniParser = require('./parser/ini-parser');
-                    const skinsBaseDir = path.join(require('electron').app.getPath('userData'), 'skins');
-                    
-                    // id is rmskin:SuiteName/Widget/File.ini
-                    const relPath = id.replace('rmskin:', '');
-                    const suiteName = relPath.split('/')[0];
-                    const suiteDir = path.join(skinsBaseDir, suiteName);
-                    
-                    const skinPath = path.join(skinsBaseDir, relPath);
-                    const skinDir = path.dirname(skinPath);
-                    
-                    const parser = new IniParser(suiteDir);
-                    const parsedData = parser.parseFile(skinPath);
-                    win.webContents.send('load-skin', { parsedData, skinDir });
-                } catch (e) {
+        win.loadFile(widgetPath); catch (e) {
                     console.error('[WidgetManager] Failed to load rainmeter skin:', e);
                 }
             });
