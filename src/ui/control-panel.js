@@ -1115,7 +1115,9 @@ function createWallpaperCard(wallpaper, isDiscover = false) {
         } else {
             actionBtn2.textContent = 'Download';
         }
-        overlayBtns.appendChild(actionBtn2); else {
+        overlayBtns.appendChild(actionBtn2);
+    }
+    else {
         const actionBtn2 = document.createElement('button');
         actionBtn2.className = 'action-btn card-action-btn';
         actionBtn2.textContent = 'Apply';
