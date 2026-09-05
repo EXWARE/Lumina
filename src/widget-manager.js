@@ -86,11 +86,7 @@ class WidgetManager {
         });
 
         // Load the widget
-        win.loadFile(widgetPath); catch (e) {
-                    console.error('[WidgetManager] Failed to load rainmeter skin:', e);
-                }
-            });
-        }
+        win.loadFile(widgetPath);
 
         // Keep it at the bottom (below other apps, but above desktop)
         win.setAlwaysOnTop(false, 'bottom');
