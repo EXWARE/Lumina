@@ -472,9 +472,7 @@ async function loadDiscoverFeed() {
     try {
         const response = await fetch(url, {
             signal,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
+            
         });
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -956,7 +954,7 @@ async function showPreviewModal(wallpaper) {
             : 'https://motionbgs.com' + wallpaper.slug;
             
         const response = await fetch(detailUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0' }
+            
         });
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1095,6 +1093,12 @@ function createWallpaperCard(wallpaper, isDiscover = false) {
     overlay.className = 'card-overlay';
     const overlayBtns = document.createElement('div');
     overlayBtns.className = 'card-overlay-buttons';
+    let isAlreadyDownloaded = false;
+    if (isDiscover && typeof library !== 'undefined' && Array.isArray(library)) {
+        const fileName = (typeof activeSource !== 'undefined' && activeSource === 'wallpaperwaves') ? wallpaper.name + '_ww_' : wallpaper.name;
+        isAlreadyDownloaded = library.some(w => w.name === fileName);
+    }
+    
     if (isDiscover) {
         const previewBtn = document.createElement('button');
         previewBtn.className = 'action-btn btn-secondary card-preview-btn';
@@ -1102,9 +1106,16 @@ function createWallpaperCard(wallpaper, isDiscover = false) {
         overlayBtns.appendChild(previewBtn);
         const actionBtn2 = document.createElement('button');
         actionBtn2.className = 'action-btn card-action-btn';
-        actionBtn2.textContent = 'Download';
-        overlayBtns.appendChild(actionBtn2);
-    } else {
+        if (isAlreadyDownloaded) {
+            actionBtn2.textContent = 'Downloaded';
+            actionBtn2.style.backgroundColor = 'var(--bg-lighter)';
+            actionBtn2.style.color = 'var(--text-muted)';
+            actionBtn2.style.cursor = 'default';
+            actionBtn2.disabled = true;
+        } else {
+            actionBtn2.textContent = 'Download';
+        }
+        overlayBtns.appendChild(actionBtn2); else {
         const actionBtn2 = document.createElement('button');
         actionBtn2.className = 'action-btn card-action-btn';
         actionBtn2.textContent = 'Apply';
@@ -1261,7 +1272,7 @@ function createWallpaperCard(wallpaper, isDiscover = false) {
                     : 'https://motionbgs.com' + wallpaper.slug;
                     
                 const response = await fetch(detailUrl, {
-                    headers: { 'User-Agent': 'Mozilla/5.0' }
+                    
                 });
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
