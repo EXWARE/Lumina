@@ -636,13 +636,26 @@ async function loadDiscoverFeed() {
         
     } catch (e) {
         if (e.name === 'AbortError') return;
-        console.error('Scraping error:', e);
-        discoverGrid.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #ef4444;">
-                <p>Failed to load wallpapers. Please check your internet connection.</p>
-                <button class="add-btn" style="margin: 15px auto 0 auto;" onclick="loadDiscoverFeed()">Retry</button>
-            </div>
-        `;
+                console.error('Scraping error:', e);
+        if (activeSource === 'wallpaperwaves') {
+            discoverGrid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #ef4444;">
+                    <p>Server 2 requires human verification.</p>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-top: 5px;">Please click Verify to solve the captcha in your browser, then come back and Retry.</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+                        <button class="add-btn" onclick="require('electron').shell.openExternal('https://wallpaperwaves.com')">Verify</button>
+                        <button class="add-btn" style="background: var(--bg-lighter);" onclick="loadDiscoverFeed()">Retry</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            discoverGrid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #ef4444;">
+                    <p>Failed to load wallpapers. Please check your internet connection.</p>
+                    <button class="add-btn" style="margin: 15px auto 0 auto;" onclick="loadDiscoverFeed()">Retry</button>
+                </div>
+            `;
+        }
     } finally {
         isLoadingDiscover = false;
     }
